@@ -22,8 +22,8 @@ def ip_scan():
 	_output = subprocess.Popen("nmap -sP 192.168.1.0/28 | grep report | awk '{print $5}'", shell=True, stdout=subprocess.PIPE).stdout.read()
 	if _output:
 		_list = _output.split()
-		_list = map(lambda x: x.rstrip('.Home'), _list)
-		_excluded = map(lambda x: x.rstrip('.Home'), config.excluded_hosts)
+		_list = map(lambda x: x.replace('.Home', ''), _list)
+		_excluded = map(lambda x: x.replace('.Home', ''), config.excluded_hosts)
 		return filter(lambda x: x not in _excluded, _list)
 	else:
 		return []
