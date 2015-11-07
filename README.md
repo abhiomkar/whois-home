@@ -10,3 +10,6 @@ Get a notification on your iPhone/Android when someone enters or leaves your hom
     Abhinays-iPhone.Home
     raspberrypi.Home
     android-4b5451e9e51fd693.Home
+
+
+sudo launchctl start org.postfix.master on Mac
