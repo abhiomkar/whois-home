@@ -43,16 +43,12 @@ def send_mail(msg):
 	return s
 
 def send_mail_s(msg):
-	print "sending mail: %s" % (msg)
 	return subprocess.Popen("mail -s '%s' %s < /dev/null" % (msg, config.send_to), shell=True, stdout=subprocess.PIPE).stdout.read()
 
 def run():
 	prev_scan_list = []
 	while True:
 		scan_list = ip_scan()
-
-		print 'prev_scan_list: ', prev_scan_list
-		print 'scan_list: ', scan_list
 
 		if scan_list:
 			if (scan_list != prev_scan_list):
@@ -72,13 +68,13 @@ def run():
 					if len(online_devices) > 1:
 						who_isin = ', '.join(online_devices[:-1])
 						who_isin += ' and ' + online_devices[-1]
-						send_mail_s(who_left + ' are in the house.')
+						send_mail_s(who_isin + ' are in the house.')
 					elif len(online_devices) == 1:
 						who_isin = online_devices[0]
-						send_mail_s(who_left + ' is in the house.')
+						send_mail_s(who_isin + ' is in the house.')
 
 		prev_scan_list = scan_list
-		time.sleep(5)
+		time.sleep(60)
 
 if __name__ == "__main__":
 	run()
