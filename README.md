@@ -1,6 +1,6 @@
 # Whois Home
 
-Get a netification on your iPhone/Android when someone enters or leaves your home using `nmap`.
+Get a notification on your iPhone/Android when someone enters or leaves your home using `nmap`.
 
 `nmap` command to display all devices which are currently connected to wifi network / router.
 
