@@ -1,6 +1,6 @@
 # Whois Home
 
-Get a notification on your iPhone/Android when someone enters or leaves your home using `nmap`.
+Get a notification on your iPhone/Android when someone enters or leaves your home.
 
 `nmap` command to display all devices which are currently connected to wifi network / router.
 
@@ -18,3 +18,13 @@ To start the SMTP mail server on Mac
 To configure mail server on Rasbian (Debian)
 
     dpkg-reconfigure exim4-config
+
+Prerequisites
+
+    * [Boxcar](https://boxcar.io)
+    * npm
+
+Author
+------
+
+Abhinay Omkar
