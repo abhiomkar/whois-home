@@ -11,5 +11,10 @@ Get a notification on your iPhone/Android when someone enters or leaves your hom
     raspberrypi.Home
     android-4b5451e9e51fd693.Home
 
+To start the SMTP mail server on Mac
 
-sudo launchctl start org.postfix.master on Mac
+    sudo launchctl start org.postfix.master on Mac
+
+To configure mail server on Rasbian (Debian)
+
+    dpkg-reconfigure exim4-config
