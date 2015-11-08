@@ -19,8 +19,10 @@ from email.mime.text import MIMEText
 import config
 
 def ip_scan():
-	_output = subprocess.Popen("arp -a && nmap -sP 192.168.1.0/28 | grep report | awk '{print $5}'", shell=True, stdout=subprocess.PIPE).stdout.read()
+	subprocess.Popen("arp -a", shell=True, stdout=subprocess.PIPE).stdout.read()
+	_output = subprocess.Popen("nmap -sP 192.168.1.1-15 2> /dev/null | grep report | awk '{print $5}'", shell=True, stdout=subprocess.PIPE).stdout.read()
 	# _output = subprocess.Popen("nmap -sP 192.168.1.1-20 && arp -a | grep -v -e '^?' | awk '{print $1}'", shell=True, stdout=subprocess.PIPE).stdout.read()
+	print _output
 	if _output:
 		_list = _output.split()
 		_list = map(lambda x: x.replace('.Home', ''), _list)
@@ -44,6 +46,7 @@ def send_mail(msg):
 	return s
 
 def send_mail_s(msg):
+	print "mail -s '%s' %s < /dev/null" % (msg, config.send_to)
 	return subprocess.Popen("mail -s '%s' %s < /dev/null" % (msg, config.send_to), shell=True, stdout=subprocess.PIPE).stdout.read()
 
 def run():
