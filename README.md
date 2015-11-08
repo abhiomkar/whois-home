@@ -1,6 +1,8 @@
 # Whois Home
 
-Get a notification on your iPhone/Android when someone enters or leaves your home.
+Get a notification on your iPhone/Android when someone enters or leaves your home. Currently running on my RasberryPi machine.
+
+![](./screenshot.png)
 
 `nmap` command to display all devices which are currently connected to wifi network / router.
 
@@ -21,8 +23,8 @@ To configure mail server on Rasbian (Debian)
 
 Prerequisites
 
-    * [Boxcar](https://boxcar.io)
-    * npm
+* [Boxcar](https://boxcar.io)
+* npm
 
 Author
 ------
