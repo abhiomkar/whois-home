@@ -19,7 +19,8 @@ from email.mime.text import MIMEText
 import config
 
 def ip_scan():
-	_output = subprocess.Popen("nmap -sP 192.168.1.0/28 | grep report | awk '{print $5}'", shell=True, stdout=subprocess.PIPE).stdout.read()
+	# _output = subprocess.Popen("nmap -sP 192.168.1.0/28 | grep report | awk '{print $5}'", shell=True, stdout=subprocess.PIPE).stdout.read()
+	_output = subprocess.Popen("arp -a | grep -v -e '^?' | awk '{print $1}'", shell=True, stdout=subprocess.PIPE).stdout.read()
 	if _output:
 		_list = _output.split()
 		_list = map(lambda x: x.replace('.Home', ''), _list)
