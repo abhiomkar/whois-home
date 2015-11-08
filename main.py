@@ -54,28 +54,30 @@ def run():
 	while True:
 		scan_list = ip_scan()
 
-		if scan_list:
-			if (scan_list != prev_scan_list):
-				offline_devices = list(set(prev_scan_list).difference(set(scan_list)))
-				online_devices = list(set(scan_list).difference(set(prev_scan_list)))
+		if (scan_list != prev_scan_list):
+			offline_devices = list(set(prev_scan_list).difference(set(scan_list)))
+			online_devices = list(set(scan_list).difference(set(prev_scan_list)))
 
-				if offline_devices:
-					if len(offline_devices) > 1:
-						who_left = ', '.join(offline_devices[:-1])
-						who_left += ' and ' + offline_devices[-1]
-					elif len(offline_devices) == 1:
-						who_left = offline_devices[0]
+			print " online_devices: ", online_devices
+			print "offline_devices: ", offline_devices
 
-					send_mail_s(who_left + ' appears to be left your home.')
+			if offline_devices:
+				if len(offline_devices) > 1:
+					who_left = ', '.join(offline_devices[:-1])
+					who_left += ' and ' + offline_devices[-1]
+				elif len(offline_devices) == 1:
+					who_left = offline_devices[0]
 
-				if online_devices:
-					if len(online_devices) > 1:
-						who_isin = ', '.join(online_devices[:-1])
-						who_isin += ' and ' + online_devices[-1]
-						send_mail_s(who_isin + ' are in the house.')
-					elif len(online_devices) == 1:
-						who_isin = online_devices[0]
-						send_mail_s(who_isin + ' is in the house.')
+				send_mail_s(who_left + ' appears to be left your home.')
+
+			if online_devices:
+				if len(online_devices) > 1:
+					who_isin = ', '.join(online_devices[:-1])
+					who_isin += ' and ' + online_devices[-1]
+					send_mail_s(who_isin + ' are in the house.')
+				elif len(online_devices) == 1:
+					who_isin = online_devices[0]
+					send_mail_s(who_isin + ' is in the house.')
 
 		prev_scan_list = scan_list
 		time.sleep(15)
