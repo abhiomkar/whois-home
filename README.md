@@ -1,6 +1,6 @@
 # Whois Home
 
-Get a notification on your iPhone/Android when someone enters or leaves your home. Currently running on my RasberryPi machine.
+Get a notification on your iPhone/Android when someone enters or leaves your home. Currently running on my RasberryPi machine. This is just a prototype.
 
 ![](./screenshot.png)
 
