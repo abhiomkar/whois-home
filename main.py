@@ -18,18 +18,43 @@ from email.mime.text import MIMEText
 
 import config
 
-def ip_scan():
+def ip_scan(ip, retry=0):
 	subprocess.Popen("arp -a", shell=True, stdout=subprocess.PIPE).stdout.read()
-	_output = subprocess.Popen("nmap -sP 192.168.1.1-15 2> /dev/null | grep report | awk '{print $5}'", shell=True, stdout=subprocess.PIPE).stdout.read()
-	# _output = subprocess.Popen("nmap -sP 192.168.1.1-20 && arp -a | grep -v -e '^?' | awk '{print $1}'", shell=True, stdout=subprocess.PIPE).stdout.read()
-	print _output
-	if _output:
-		_list = _output.split()
-		_list = map(lambda x: x.replace('.Home', ''), _list)
-		_excluded = map(lambda x: x.replace('.Home', ''), config.excluded_hosts)
-		return filter(lambda x: x not in _excluded, _list)
-	else:
-		return []
+
+	scan_result = []
+
+	while True:
+		print "nmap -sP %s 2> /dev/null | grep report | grep '(' | awk '{print $5, $6}'" % (ip)
+		_output = subprocess.Popen("nmap -sP %s 2> /dev/null | grep report | grep '(' | awk '{print $5, $6}'" % (ip), shell=True, stdout=subprocess.PIPE).stdout.read()
+		# _output = subprocess.Popen("nmap -sP 192.168.1.1-20 && arp -a | grep -v -e '^?' | awk '{print $1}'", shell=True, stdout=subprocess.PIPE).stdout.read()
+		if _output:
+			_list = _output.strip().split("\n")
+			_list = map(lambda x: {"hostname": x.split()[0], "ip": x.split()[1].lstrip('(').rstrip(')')}, _list)
+			_excluded = map(lambda x: x.replace('.Home', ''), config.excluded_hosts)
+			_list = filter(lambda x: x["hostname"] not in _excluded, _list)
+
+			scan_result.extend([entry for entry in _list if entry not in scan_result])
+
+		else:
+			scan_result.extend([])
+
+		if retry == 0:
+			break
+
+		retry = retry - 1
+		time.sleep(2)
+
+	return scan_result
+
+def whatismyip():
+	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+	s.connect(("gmail.com",80))
+	ip = s.getsockname()[0]
+	s.close()
+	return ip
+
+def get_hostname_byips(ip_list, scan_list):
+	return map(lambda x: x["hostname"], filter(lambda x: True if x["ip"] in ip_list else False, scan_list))
 
 def send_mail(msg):
 	sender = getpass.getuser() + '@' + socket.gethostname()
@@ -52,31 +77,46 @@ def send_mail_s(msg):
 def run():
 	prev_scan_list = []
 	while True:
-		scan_list = ip_scan()
+		myip = whatismyip()
+		# 192.168.1.2-20
+		ip_range = ".".join(myip.split('.')[:-1]) + ".2-99"
+		scan_list = ip_scan(ip_range)
+
+		print scan_list
 
 		if (scan_list != prev_scan_list):
-			offline_devices = list(set(prev_scan_list).difference(set(scan_list)))
-			online_devices = list(set(scan_list).difference(set(prev_scan_list)))
+			offline_devices = set([x["ip"] for x in prev_scan_list]).difference(set([x["ip"] for x in scan_list]))
+			online_devices = set([x["ip"] for x in scan_list]).difference(set([x["ip"] for x in prev_scan_list]))
 
 			print " online_devices: ", online_devices
 			print "offline_devices: ", offline_devices
 
 			if offline_devices:
+				# retry for 5 times to check if they really left?
+				results_after_retry = ip_scan(" ".join(offline_devices), retry=5)
+				# if any of them found online again remove it from offline_devices and add them back to online_devices
+				offline_devices.difference_update(map(lambda x: x["ip"], results_after_retry))
+				online_devices.update(map(lambda x: x["ip"], results_after_retry))
+
+				offline_devices_names = get_hostname_byips(offline_devices, scan_list)
+
 				if len(offline_devices) > 1:
-					who_left = ', '.join(offline_devices[:-1])
-					who_left += ' and ' + offline_devices[-1]
+					who_left = ', '.join(offline_devices_names[:-1])
+					who_left += ' and ' + offline_devices_names[-1]
 				elif len(offline_devices) == 1:
-					who_left = offline_devices[0]
+					who_left = offline_devices_names[0]
 
 				send_mail_s(who_left + ' appears to be left your home.')
 
+			online_devices_names = get_hostname_byips(online_devices, scan_list)
+
 			if online_devices:
 				if len(online_devices) > 1:
-					who_isin = ', '.join(online_devices[:-1])
-					who_isin += ' and ' + online_devices[-1]
+					who_isin = ', '.join(online_devices_names[:-1])
+					who_isin += ' and ' + online_devices_names[-1]
 					send_mail_s(who_isin + ' are in the house.')
 				elif len(online_devices) == 1:
-					who_isin = online_devices[0]
+					who_isin = online_devices_names[0]
 					send_mail_s(who_isin + ' is in the house.')
 
 		prev_scan_list = scan_list
