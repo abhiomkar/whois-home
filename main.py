@@ -30,8 +30,7 @@ def ip_scan(ip, retry=0):
 		if _output:
 			_list = _output.strip().split("\n")
 			_list = map(lambda x: {"hostname": x.split()[0], "ip": x.split()[1].lstrip('(').rstrip(')')}, _list)
-			_excluded = map(lambda x: x.replace('.Home', ''), config.excluded_hosts)
-			_list = filter(lambda x: x["hostname"] not in _excluded, _list)
+			_list = filter(lambda x: x["hostname"] not in config.excluded_hosts, _list)
 
 			scan_result.extend([entry for entry in _list if entry not in scan_result])
 
@@ -42,7 +41,7 @@ def ip_scan(ip, retry=0):
 			break
 
 		retry = retry - 1
-		time.sleep(2)
+		time.sleep(4)
 
 	return scan_result
 
@@ -54,7 +53,7 @@ def whatismyip():
 	return ip
 
 def get_hostname_byips(ip_list, scan_list):
-	return map(lambda x: x["hostname"], filter(lambda x: True if x["ip"] in ip_list else False, scan_list))
+	return map(lambda x: x["hostname"].replace('.Home', ''), filter(lambda x: True if x["ip"] in ip_list else False, scan_list))
 
 def send_mail(msg):
 	sender = getpass.getuser() + '@' + socket.gethostname()
@@ -79,7 +78,7 @@ def run():
 	while True:
 		myip = whatismyip()
 		# 192.168.1.2-20
-		ip_range = ".".join(myip.split('.')[:-1]) + ".2-99"
+		ip_range = ".".join(myip.split('.')[:-1]) + ".2-25"
 		scan_list = ip_scan(ip_range)
 
 		print scan_list
@@ -88,17 +87,28 @@ def run():
 			offline_devices = set([x["ip"] for x in prev_scan_list]).difference(set([x["ip"] for x in scan_list]))
 			online_devices = set([x["ip"] for x in scan_list]).difference(set([x["ip"] for x in prev_scan_list]))
 
+			all_scan_list = []
+			for entry in (prev_scan_list + scan_list):
+				if entry not in all_scan_list:
+					all_scan_list.append(entry)
+
+			# offline_devices_list = [entry for entry in all_scan_list if entry["ip"] in offline_devices]
+			# online_devices_list = [entry for entry in all_scan_list if entry["ip"] in online_devices]
+
 			print " online_devices: ", online_devices
 			print "offline_devices: ", offline_devices
 
 			if offline_devices:
 				# retry for 5 times to check if they really left?
-				results_after_retry = ip_scan(" ".join(offline_devices), retry=5)
+				results_after_retry = ip_scan(" ".join(offline_devices), retry=10)
+
+				# update the scan_result accordingly
+				scan_list.extend([entry for entry in results_after_retry if entry not in scan_list])
+
 				# if any of them found online again remove it from offline_devices and add them back to online_devices
 				offline_devices.difference_update(map(lambda x: x["ip"], results_after_retry))
-				online_devices.update(map(lambda x: x["ip"], results_after_retry))
 
-				offline_devices_names = get_hostname_byips(offline_devices, scan_list)
+				offline_devices_names = get_hostname_byips(offline_devices, all_scan_list)
 
 				if len(offline_devices) > 1:
 					who_left = ', '.join(offline_devices_names[:-1])
@@ -106,7 +116,8 @@ def run():
 				elif len(offline_devices) == 1:
 					who_left = offline_devices_names[0]
 
-				send_mail_s(who_left + ' appears to be left your home.')
+				if len(offline_devices) > 0:
+					send_mail_s(who_left + ' appears to be left your home.')
 
 			online_devices_names = get_hostname_byips(online_devices, scan_list)
 
