@@ -1,48 +1,16 @@
 #!/usr/bin/python
 
-# $ nmap -sP 192.168.1.0/28 | grep report | awk '{print $5}'
-# D-Link123.Home
-# Abhinays-iMac.Home
-# Abhinays-iPhone.Home
-# raspberrypi.Home
-# android-4b5451e9e51fd693.Home
-
 import time
 import sys
 import subprocess
 import smtplib
 import getpass
 import socket
+import requests
 
 from email.mime.text import MIMEText
 
 import config
-
-def ip_scan(ip, retry=0):
-	# subprocess.Popen("arp -a", shell=True, stdout=subprocess.PIPE).stdout.read()
-
-	scan_result = []
-
-	while True:
-		print "nmap -sP %s 2> /dev/null | grep report | grep '(' | awk '{print $5, $6}'" % (ip)
-		_output = subprocess.Popen("nmap -sP %s 2> /dev/null | grep report | grep '(' | awk '{print $5, $6}'" % (ip), shell=True, stdout=subprocess.PIPE).stdout.read()
-		if _output:
-			_list = _output.strip().split("\n")
-			_list = map(lambda x: {"hostname": x.split()[0], "ip": x.split()[1].lstrip('(').rstrip(')')}, _list)
-			_list = filter(lambda x: x["hostname"] not in config.excluded_hosts, _list)
-
-			scan_result.extend([entry for entry in _list if entry not in scan_result])
-
-		else:
-			scan_result.extend([])
-
-		if retry == 0:
-			break
-
-		retry = retry - 1
-		time.sleep(4)
-
-	return scan_result
 
 def whatismyip():
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -50,9 +18,6 @@ def whatismyip():
 	ip = s.getsockname()[0]
 	s.close()
 	return ip
-
-def get_hostname_byips(ip_list, scan_list):
-	return map(lambda x: x["hostname"].replace('.Home', ''), filter(lambda x: True if x["ip"] in ip_list else False, scan_list))
 
 def send_mail(msg):
 	sender = getpass.getuser() + '@' + socket.gethostname()
@@ -72,64 +37,73 @@ def send_mail_s(msg):
 	print "mail -s '%s' %s < /dev/null" % (msg, config.send_to)
 	return subprocess.Popen("mail -s '%s' %s < /dev/null" % (msg, config.send_to), shell=True, stdout=subprocess.PIPE).stdout.read()
 
+def login(login_url, payload):
+	s = requests.Session()
+	s.post(login_url, data=payload)
+	return s
+
+def get_mapinfo():
+	'http://192.168.1.1/pages/connectionStatus/GetNetworkMapInfo.html'
+
 def run():
-	prev_scan_list = []
+	prev_mapinfo = []
+
 	myip = whatismyip()
+	router_ip = '.'.join(myip.split('.')[:-1]) + '.1'
+	base_router_url = "http://" + router_ip
+
+	login_url = base_router_url + "/login/login-page.cgi"
+	payload = {
+	    'AuthName': 'admin',
+	    'Display': config.password,
+	    'AuthPassword': config.password
+	}
+
+	s = login(login_url, payload)
+
 	while True:
-		# 192.168.1.2-20
-		ip_range = ".".join(myip.split('.')[:-1]) + ".2-25"
-		scan_list = ip_scan(ip_range)
+		mapinfo_raw = s.get(base_router_url + "/pages/connectionStatus/GetNetworkMapInfo.html").text
 
-		print scan_list
+		if (mapinfo_raw.find("/login/login.html") >= 0):
+			print "Trying to login..."
+			s = login(login_url, payload)
+			continue
 
-		if (scan_list != prev_scan_list):
-			offline_devices = set([x["ip"] for x in prev_scan_list]).difference(set([x["ip"] for x in scan_list]))
-			online_devices = set([x["ip"] for x in scan_list]).difference(set([x["ip"] for x in prev_scan_list]))
+		# [u'192.168.1.3 Abhinays-iMac', u'192.168.1.2 unknown', u'192.168.1.4 iPh', u'192.168.1.7 Abhinays-iPhone', u'192.168.1.8 AbhinaypleWatch', u'192.168.1.9 PJ', u'192.168.1.10 iPhone', u'192.168.1.13 raspberrypi', u'192.168.1.14 abhiomkar-macbookair', u'192.168.1.16 unknown']
+		mapinfo = map(lambda x: x.split('/')[5] + " " + x.split('/')[1], mapinfo_raw.split("\n")[2].split('|'))
 
-			all_scan_list = []
-			for entry in (prev_scan_list + scan_list):
-				if entry not in all_scan_list:
-					all_scan_list.append(entry)
+		mapinfo = filter(lambda x: x.split()[1] not in config.excluded_hosts, mapinfo)
 
-			# offline_devices_list = [entry for entry in all_scan_list if entry["ip"] in offline_devices]
-			# online_devices_list = [entry for entry in all_scan_list if entry["ip"] in online_devices]
+		# print "Found " + ', '.join(map(lambda x: x.split()[1], mapinfo))
+
+		if (mapinfo != prev_mapinfo):
+
+			offline_devices = list(set(prev_mapinfo).difference(mapinfo))
+			online_devices = list(set(mapinfo).difference(prev_mapinfo))
 
 			print " online_devices: ", online_devices
 			print "offline_devices: ", offline_devices
 
 			if offline_devices:
-				# retry for 5 times to check if they really left?
-				results_after_retry = ip_scan(" ".join(offline_devices), retry=10)
-
-				# update the scan_result accordingly
-				scan_list.extend([entry for entry in results_after_retry if entry not in scan_list])
-
-				# if any of them found online again remove it from offline_devices and add them back to online_devices
-				offline_devices.difference_update(map(lambda x: x["ip"], results_after_retry))
-
-				offline_devices_names = get_hostname_byips(offline_devices, all_scan_list)
-
 				if len(offline_devices) > 1:
-					who_left = ', '.join(offline_devices_names[:-1])
-					who_left += ' and ' + offline_devices_names[-1]
+					who_left = ', '.join(map(lambda x: x.split()[1], offline_devices[:-1]))
+					who_left += ' and ' + offline_devices[-1].split()[1]
 				elif len(offline_devices) == 1:
-					who_left = offline_devices_names[0]
+					who_left = offline_devices[0].split()[1]
 
 				if len(offline_devices) > 0:
 					send_mail_s(who_left + ' appears to be left your home.')
 
-			online_devices_names = get_hostname_byips(online_devices, scan_list)
-
 			if online_devices:
 				if len(online_devices) > 1:
-					who_isin = ', '.join(online_devices_names[:-1])
-					who_isin += ' and ' + online_devices_names[-1]
+					who_isin = ', '.join(map(lambda x: x.split()[1], online_devices[:-1]))
+					who_isin += ' and ' + online_devices[-1].split()[1]
 					send_mail_s(who_isin + ' are in the house.')
 				elif len(online_devices) == 1:
-					who_isin = online_devices_names[0]
+					who_isin = online_devices[0].split()[1]
 					send_mail_s(who_isin + ' is in the house.')
 
-		prev_scan_list = scan_list
+		prev_mapinfo = mapinfo
 		time.sleep(15)
 
 if __name__ == "__main__":
